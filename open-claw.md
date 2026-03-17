@@ -3,10 +3,13 @@ Here's the full report:
 ---
 
 # LANDED.md — TAEM Full Shakedown Review: openclaw/openclaw
-
+---
 **Mission:** Review openclaw/openclaw codebase (v2026.3.14)
+---
 **Date:** 2026-03-17
+---
 **Target:** https://github.com/openclaw/openclaw
+---
 **Verdict:** **GO** — impressive security posture, advisories below
 
 ---

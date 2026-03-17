@@ -1,7 +1,7 @@
 ---
 
 # LANDED.md — TAEM Full Shakedown Review: ry-ops/git-steer
-
+---
 **Mission:** Review git-steer v0.3.0 codebase
 ---
 **Date:** 2026-03-17

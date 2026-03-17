@@ -1,7 +1,3 @@
-Here's the full report:
-
----
-
 # LANDED.md — TAEM Full Shakedown Review: openclaw/openclaw
 ---
 **Mission:** Review openclaw/openclaw codebase (v2026.3.14)

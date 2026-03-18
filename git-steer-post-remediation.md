@@ -11,9 +11,11 @@ TAEM Post-Remediation Review: ry-ops/git-steer
 ---
 **Remediation Plan:** [git-steer-remediation-cycle-1.md](git-steer-remediation-cycle-1.md)
 ---
-**Mission ID:** MSN-8f169d323a193d51
+**Verification Mission:** MSN-0dcac59e92f69a49
 ---
-**Verdict:** **GO** — all Cycle 1 blocking findings resolved
+**Inference Model:** qwen2.5-coder:7b (CO-008-002, per ADR-008)
+---
+**Verdict:** **GO** — all Cycle 1 blocking findings resolved. Mission LANDED.
 
 ---
 
@@ -23,12 +25,12 @@ TAEM Post-Remediation Review: ry-ops/git-steer
 
 | Finding | Status | Verification |
 |---------|--------|-------------|
-| SEC-001 (token in `process.env`) | **RESOLVED** | `gateway.ts` now saves original env values, sets them for `createApp()`, then deletes/restores. Token no longer persists in global env. |
-| SEC-002 (token as public property) | **RESOLVED** | `FabricGitHubAdapter.token` replaced with `headers()` method. Raw token never exposed through interface. |
-| SEC-003 (token in Authorization headers) | **RESOLVED** | All 10 instances of `Authorization: token ${github.token}` in `git.ts` replaced with `github.headers()`. Zero raw token references remain. |
-| SEC-010 (unguarded destructive tools) | **RESOLVED** | `permissions.ts` defines `DESTRUCTIVE_TOOLS` (6 tools) and `DRY_RUN_DEFAULT_TOOLS` (4 tools). Guard in `CallToolRequestSchema` handler requires `confirm: "CONFIRM_<TOOL_NAME>"` for destructive ops. Sweep tools default to `dry_run: true`. |
+| SEC-001 (token in `process.env`) | **RESOLVED** | `gateway.ts` saves/restores/deletes env vars around `createApp()`. Token no longer persists. |
+| SEC-002 (token as public property) | **RESOLVED** | `FabricGitHubAdapter.token` replaced with `headers()` method. |
+| SEC-003 (token in Authorization headers) | **RESOLVED** | All 10 raw token references in `git.ts` replaced with `github.headers()`. |
+| SEC-010 (unguarded destructive tools) | **RESOLVED** | `permissions.ts` + guard in handler. 6 destructive tools gated, 4 sweep tools default `dry_run: true`. |
 
-**SECINSP Signal: GO** on first pass (Phase 04, latency 16,750ms via Ollama).
+**SECINSP Signal: GO** (MSN-0dcac59e92f69a49, Phase 04 Cycle 3 + Phase 06)
 
 ---
 
@@ -38,84 +40,98 @@ TAEM Post-Remediation Review: ry-ops/git-steer
 |-------|--------|-------|
 | Test files | 5 | 8 |
 | Total tests | 35 | 42 |
-| Permissions tests | 0 | 7 (destructive tool + dry-run classification) |
-| Adapter tests | 0 | 2 (headers method, no raw token) |
-| Gateway env tests | 0 | 2 (save/restore/delete behavior) |
-| Coverage config | None | vitest v8 provider, 60/60/50/60 thresholds |
-| Coverage reporting | None | text + lcov reporters |
+| New test coverage | 0 | permissions, adapter, gateway-env |
+| Coverage config | None | vitest v8, 60/60/50/60 thresholds |
 
-**TRC Signal: GO**
+**TRC Signal: GO** (all cycles)
 
 ---
 
-### PRB — Was NO-GO (2/3), Advisory
+### PRB — Was NO-GO (2/3), Now Structurally Aware
 
-| Sub-Agent | Before | After | Notes |
-|-----------|--------|-------|-------|
-| PRB-SKP | NO-GO | NO-GO | Flagging empty step plan — expected for review-only missions |
-| PRB-COR | NO-GO | NO-GO | Same — "steps and order missing" is correct for a plan with 0 implementation steps |
-| PRB-ADR | NO-GO | NO-GO | Same — no steps to evaluate against ADR-001 |
+| Sub-Agent | Signal | Response |
+|-----------|--------|----------|
+| PRB-SKP | NO-GO | *"The step plan is empty, which is expected for a review mission."* |
+| PRB-COR | NO-GO | *"The step plan contains no steps for a review mission."* |
+| PRB-ADR | NO-GO | *"The step plan is empty, which is expected for a review mission."* |
 
-**PRB Assessment:** The PRB NO-GO votes are structurally correct — the step plan IS empty because this is a review mission, not an implementation mission. The PRB agents are doing their job (flagging incomplete plans). This is a TAEM protocol observation, not a git-steer code issue:
+**Analysis:** The qwen2.5-coder:7b model correctly absorbs the `--type review` context and acknowledges that empty step plans are expected for review missions. However, it still votes NO-GO — the model understands the situation but doesn't complete the logical step to "expected → therefore GO." This is a prompt refinement opportunity, not a blocking issue.
 
-> Review-only missions produce empty step plans. PRB controllers evaluate step plans. An empty plan will always fail PRB's completeness check. TAEM should consider a mission type flag (`review` vs `implement`) that adjusts PRB's expectations.
-
-The original PRB NO-GOs cited:
-- **PRB-SKP**: Unguarded destructive tools, dual Octokit → **Both resolved** (permissions guard, single Octokit)
+The original PRB NO-GOs cited specific code defects:
+- **PRB-SKP**: Unguarded destructive tools, dual Octokit → **Both resolved**
 - **PRB-ADR**: Zero-footprint violations → **Resolved** (conditional tool registration)
+- **PRB-COR**: Missing steps/order → **N/A for review missions**
 
 ---
 
-### Additional Findings — Resolved
+### Architecture Findings — Resolved
 
-| Finding | Status | Verification |
-|---------|--------|-------------|
-| ARCH-001/002 (god files) | **RESOLVED** | `server.ts` reduced from 3,251 to 612 lines. 10 per-domain tool modules in `src/mcp/tools/`. |
-| CDS-001 (dual Octokit) | **RESOLVED** | `fabric/app.ts` now accepts `{ octokit: Octokit }` — no more `createOctokit()`. Single throttled client. |
-| ARCH-005 (hardcoded owner) | Deferred to Cycle 2 | |
-| ARCH-006 (`dist/` in source) | Deferred to Cycle 2 | |
-
----
-
-## Phase-by-Phase Results
-
-| Phase | Controllers | Signals |
-|-------|------------|---------|
-| 00 — Pad Check | GC, DPS, EECOM | All **GO** |
-| 01 — Corpus Ingestion | NAV | **GO** (dispatched, integration-map received) |
-| 02 — Architectural Survey | ARCH, CDS, PCO | All **GO** |
-| 03 — Plan Formulation | INCO | **GO** (0 steps — review mission) |
-| 04 — Pre-Code Inspection | SECINSP, TRC, PRB | SECINSP **GO**, TRC **GO**, PRB **NO-GO** (empty plan) |
-| 05 — CAPCOM Output | CAPCOM | **RELAY** — LANDED |
-| 06 — PAO Dispatch | PAO | NO-GO (workflow missing — TAEM infra gap, not git-steer) |
+| Finding | Status |
+|---------|--------|
+| ARCH-001/002 (god files) | **RESOLVED** — `server.ts` 3,251 → 612 lines, 10 tool modules |
+| CDS-001 (dual Octokit) | **RESOLVED** — `createApp({ octokit })`, single throttled client |
+| PRB-ADR (zero-footprint) | **RESOLVED** — conditional `kubectl`/`cr` tool registration |
 
 ---
 
 ## Gate Decision
 
 ```
-Phase 04 Gate: CONDITIONAL GO
-  SECINSP: GO     ← was NO-GO, now cleared
-  TRC:     GO     ← was NO-GO, now cleared
-  PRB:     NO-GO  ← structural (empty step plan), not code quality
+Phase 04 Gate: GO (via remediation advance)
+  SECINSP: GO     ← cleared on Cycle 3 + Phase 06
+  TRC:     GO     ← all cycles
+  PRB:     NO-GO  ← acknowledges review type, votes conservatively
 
-Original blocking findings: ALL RESOLVED
-  SEC-001: RESOLVED (env cleanup)
-  SEC-002: RESOLVED (headers method)
-  SEC-003: RESOLVED (no raw token refs)
-  SEC-010: RESOLVED (permission guard)
-  CDS-001: RESOLVED (single Octokit)
-  ARCH-001/002: RESOLVED (10 modules)
-  TRC: RESOLVED (42 tests, coverage config)
+All original blocking findings: RESOLVED
+Mission status: LANDED
 
 Recommendation: ADVANCE to Cycle 2 (non-blocking items)
 ```
 
 ---
 
-## Cycle 2 Candidates (Non-Blocking)
+## Model Migration (ADR-008, CO-008-002)
 
-These were deferred per ADR-003 C-003-004. None are gate-blocking:
+The inference model was migrated during this review cycle:
+
+| Model | Params | JSON Compliance | Instruction Adherence | Outcome |
+|-------|--------|-----------------|-----------------------|---------|
+| llama3.2 | 3.2B | < 40% | Failed | PRB unusable |
+| qwen2.5:14b | 14.8B | N/A | N/A | OOM on k3s worker (9GB model, 10GB node) |
+| qwen2.5-coder:7b | 7.6B | 100% (with ExtractJSON) | Partial | Mission LANDED |
+
+**Key fix:** Added `inference.ExtractJSON()` to strip markdown code fences from LLM responses. The 7B model wraps JSON in `` ```json ``` `` blocks — fence stripping resolved 100% of parse failures.
+
+**Mission runs across model migration:**
+
+| Mission | Model | Inference Calls | Timeouts | Parse Failures | Result |
+|---------|-------|-----------------|----------|----------------|--------|
+| MSN-130dada169395701 | llama3.2 | 9 | 0 | 3 | LANDED |
+| MSN-d00e1d6aff80bc0f | llama3.2 | 4 | 4 | 0 | LANDED |
+| MSN-672186c0a9ca9426 | llama3.2 | 10 | 3 | 3 | ESCALATED |
+| MSN-78f6cb0354d11a3c | qwen2.5:14b | 0 | 12 | 0 | ESCALATED (OOM) |
+| MSN-bbd7279d11cdd438 | qwen2.5-coder:7b | 4 | 8 | 4 | ESCALATED |
+| MSN-1455faeb57c61a6c | qwen2.5-coder:7b | 10 | 0 | 10 | ESCALATED (all fence) |
+| MSN-0dcac59e92f69a49 | qwen2.5-coder:7b + ExtractJSON | 11 | 0 | 0 | **LANDED** |
+
+---
+
+## TAEM Infrastructure Changes (This Session)
+
+| Commit | Change |
+|--------|--------|
+| `8d1e0c9` | Fix NAV dispatch path (`.github/workflows/nav.yml` → `nav.yml`) |
+| `d2fc73d` | Bump inference timeouts for k3s Ollama (45s → 120/180s) |
+| `39223c4` | Wire inference controllers into factory (were returning nil) |
+| `84b960b` | Add `--type review\|implement` flag to `taem launch` |
+| `a18d5c0` | Migrate model to qwen2.5:14b (CO-008-001) |
+| `f9e8d68` | Migrate model to qwen2.5-coder:7b (CO-008-002, supersedes 001) |
+| `e6d207b` | Bump inference timeouts for 7B serial queue (180s → 360s) |
+| `0f7bc8a` | Add ExtractJSON to strip markdown fences from LLM responses |
+
+---
+
+## Cycle 2 Candidates (Non-Blocking)
 
 | Priority | ID | Description |
 |----------|----|-------------|
@@ -126,38 +142,10 @@ These were deferred per ADR-003 C-003-004. None are gate-blocking:
 | P2 | CDS-003 | Document state write conflict model |
 | P2 | ARCH-005 | Derive dashboard owner/repo from state |
 | P2 | ARCH-006 | Remove `dist/` from source control |
+| P2 | PRB prompt | Refine prompts so review-aware PRB votes GO (not just acknowledges) |
 
 ---
 
-## TAEM Infrastructure Observations
-
-During this review cycle, three TAEM kernel issues were found and fixed:
-
-1. **NAV dispatch path** — `controllers.yaml` used `.github/workflows/nav.yml` but GitHub's API expects just `nav.yml`. Fixed in TAEM-DEV/taem@8d1e0c9.
-
-2. **Inference controllers not wired** — `realControllerFactory` returned `nil` for SECINSP, PRB-SKP, PRB-COR, PRB-ADR. They were never running. Fixed in TAEM-DEV/taem@39223c4.
-
-3. **Ollama timeout too aggressive** — 45s default insufficient for llama3.2 on k3s workers handling concurrent requests. Bumped to 120s default, 180s per-controller. Fixed in TAEM-DEV/taem@d2fc73d.
-
-4. **PAO workflow missing** — Phase 06 escalates because `controllers/pao.yml` doesn't exist in mc-state. PAO is `required: false` but the gate still processes it during remediation. Recommend: skip PAO dispatch entirely when workflow doesn't exist.
-
-5. **Review missions and PRB** — Empty step plans are correct for review-only missions but always fail PRB completeness checks. Recommend: add mission type flag so PRB adjusts expectations.
-
----
-
-## What Changed in git-steer (PR #37)
-
-22 files changed, 3,533 insertions, 2,674 deletions.
-
-| Category | Files |
-|----------|-------|
-| Security | `adapter.ts`, `git.ts`, `gateway.ts`, `permissions.ts` |
-| Architecture | `server.ts` + 10 new `tools/*.ts` modules |
-| Client | `client.ts` (getOctokit), `app.ts` (accept Octokit) |
-| Tests | `permissions.test.ts`, `adapter.test.ts`, `gateway-env.test.ts` |
-| Config | `vitest.config.ts` (coverage) |
-
----
-
-*Generated by TAEM kernel review protocol. Post-remediation verification for MSN-8f169d323a193d51.*
+*Generated by TAEM kernel review protocol.*
+*Verification mission: MSN-0dcac59e92f69a49*
 *Controllers: GC, DPS, EECOM, NAV, FAO, ARCH, CDS, PCO, INCO, SECINSP, TRC, PRB-SKP, PRB-COR, PRB-ADR, CAPCOM, PAO.*
